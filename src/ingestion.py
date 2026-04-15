@@ -20,32 +20,52 @@ logging.basicConfig(
 )
 
 def ingest_data():
-    logging.info("Inicio del proceso de ingesta")
+    logging.info("=== INICIO DEL PIPELINE ===")
 
     try:
-        # Leer CSV
-        df = pd.read_csv(INPUT_FILE)
-        logging.info(f"Archivo leído correctamente. Registros encontrados: {len(df)}")
+        # 📌 Validar existencia del archivo
+        if not os.path.exists(INPUT_FILE):
+            logging.error("El archivo de entrada no existe")
+            raise FileNotFoundError(f"No se encontró {INPUT_FILE}")
 
-        # Transformación básica (ejemplo)
+        # 📥 Leer CSV
+        df = pd.read_csv(INPUT_FILE)
+        logging.info(f"Archivo leído correctamente. Registros: {len(df)}")
+
+        # 🧹 Normalizar columnas
         df.columns = [col.strip().lower() for col in df.columns]
 
-        # Eliminar duplicados
+        # 📊 Información básica del dataset
+        logging.info(f"Columnas detectadas: {list(df.columns)}")
+
+        # ❌ Valores nulos
+        nulls = df.isnull().sum().sum()
+        logging.info(f"Valores nulos totales: {nulls}")
+
+        # 🔁 Eliminar duplicados
+        before = len(df)
         df = df.drop_duplicates()
+        logging.info(f"Duplicados eliminados: {before - len(df)}")
 
-        # Agregar timestamp de procesamiento
-        df["processed_at"] = datetime.now()
+        # 🎯 Feature engineering: riesgo de abandono
+        df["riesgo_abandono"] = df["abandono"].apply(
+            lambda x: "alto riesgo" if x == 1 else "bajo riesgo"
+        )
 
-        # Guardar datos procesados
+        # ⏱ Timestamp de procesamiento
+        df["processed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 📤 Guardar output
         df.to_csv(OUTPUT_FILE, index=False)
-        logging.info(f"Datos procesados y guardados correctamente en {OUTPUT_FILE}")
-        logging.info(f"Total de registros procesados: {len(df)}")
+        logging.info(f"Datos guardados en: {OUTPUT_FILE}")
+
+        # 📈 Métricas finales
+        logging.info(f"Registros finales: {len(df)}")
+        logging.info("=== PIPELINE FINALIZADO EXITOSAMENTE ===")
 
     except Exception as e:
-        logging.error(f"Error en el proceso de ingesta: {str(e)}")
+        logging.error(f"ERROR EN PIPELINE: {str(e)}")
         raise
-
-    logging.info("Fin del proceso de ingesta")
 
 
 if __name__ == "__main__":
